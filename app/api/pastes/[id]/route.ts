@@ -6,17 +6,11 @@ type Paste = {
   createdAt: number;
 };
 
-type Params = {
-  params: {
-    id: string;
-  };
-};
-
 export async function GET(
   _req: Request,
-  { params }: Params
+  context: { params: Promise<{ id: string }> }
 ) {
-  const { id } = params;
+  const { id } = await context.params; // Note the await here!
 
   const data = (await kv.get(id)) as Paste | null;
 
