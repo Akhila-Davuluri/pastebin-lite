@@ -1,43 +1,31 @@
-import { kv } from "@/lib/kv";
-import { now as getNow } from "@/lib/time";
+import { NextResponse } from "next/server";
+import { kv } from "../../../../lib/kv";
+
+type Paste = {
+  content: string;
+  createdAt: number;
+};
+
+type Params = {
+  params: {
+    id: string;
+  };
+};
 
 export async function GET(
-  req: Request,
-  { params }: { params: { id: string } }
+  _req: Request,
+  { params }: Params
 ) {
-  const key = `paste:${params.id}`;
-  const data = await kv.get<any>(key);
+  const { id } = params;
 
-  // Missing paste
+  const data = (await kv.get(id)) as Paste | null;
+
   if (!data) {
-    return Response.json({ error: "Not found" }, { status: 404 });
+    return NextResponse.json(
+      { error: "Paste not found" },
+      { status: 404 }
+    );
   }
 
-  const currentTime = getNow(req);
-
-  // Expired paste
-  if (data.expires_at && currentTime > data.expires_at) {
-    await kv.del(key);
-    return Response.json({ error: "Expired" }, { status: 404 });
-  }
-
-  // View limit check
-  if (data.remaining_views !== null) {
-    if (data.remaining_views <= 0) {
-      await kv.del(key);
-      return Response.json({ error: "View limit exceeded" }, { status: 404 });
-    }
-    data.remaining_views -= 1;
-  }
-
-  // Persist updated views
-  await kv.set(key, data);
-
-  return Response.json({
-    content: data.content,
-    remaining_views: data.remaining_views,
-    expires_at: data.expires_at
-      ? new Date(data.expires_at).toISOString()
-      : null,
-  });
+  return NextResponse.json(data);
 }
